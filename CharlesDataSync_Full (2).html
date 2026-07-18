@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharlesDataSync - 外贸数据管理系统</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans SC",sans-serif;background:#f3f4f6;margin:0}
+.sidebar{width:220px;min-height:100vh;background:#1e293b;color:#fff;position:fixed;left:0;top:0;transition:width .3s;z-index:50;overflow-y:auto;max-height:100vh}
+.sidebar.collapsed{width:60px}
+.main{margin-left:220px;transition:margin-left .3s;padding:20px;min-height:100vh}
+.sidebar.collapsed~.main{margin-left:60px}
+.nav-item{padding:10px 18px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:.2s;border-left:3px solid transparent;user-select:none;font-size:13px}
+.nav-item:hover{background:#334155}
+.nav-item.active{background:#2563eb;border-left-color:#60a5fa}
+.nav-item .icon{width:20px;text-align:center;font-size:16px}
+.nav-item .text{white-space:nowrap;overflow:hidden}
+.sidebar.collapsed .nav-item .text{display:none}
+.page{display:none}
+.page.active{display:block}
+.table-container{overflow-x:auto;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+th{background:#f8fafc;font-weight:600;color:#374151;position:relative;cursor:pointer;font-size:11px}
+th .filter-icon{font-size:9px;color:#9ca3af;margin-left:3px}
+tr:hover td{background:#f9fafb}
+.editing{background:#eff6ff;outline:2px solid #3b82f6;outline-offset:-2px}
+.btn{padding:5px 12px;border-radius:6px;border:none;cursor:pointer;font-size:12px;transition:.2s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.btn-primary{background:#2563eb;color:#fff}
+.btn-primary:hover{background:#1d4ed8}
+.btn-secondary{background:#e5e7eb;color:#374151}
+.btn-secondary:hover{background:#d1d5db}
+.btn-success{background:#10b981;color:#fff}
+.btn-success:hover{background:#059669}
+.btn-danger{background:#ef4444;color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-sm{padding:3px 8px;font-size:11px}
+.tab-btn{padding:6px 14px;border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent;font-size:13px}
+.tab-btn.active{border-bottom-color:#2563eb;color:#2563eb;font-weight:600}
+.section-card{background:#fff;border-radius:8px;padding:14px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;cursor:pointer;user-select:none}
+.section-title{font-size:15px;font-weight:700;color:#1f2937}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.kpi-card{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;padding:14px;border-radius:8px}
+.kpi-value{font-size:24px;font-weight:700}
+.kpi-label{font-size:11px;opacity:.9;margin-top:3px}
+.search-input{padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;width:200px}
+.search-input:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.filter-dropdown{position:absolute;top:100%;left:0;background:#fff;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 4px 6px rgba(0,0,0,.1);z-index:20;min-width:140px;padding:6px;display:none;max-height:200px;overflow-y:auto}
+.filter-dropdown.show{display:block}
+.filter-option{padding:5px 8px;cursor:pointer;font-size:12px}
+.filter-option:hover{background:#f3f4f6}
+.toast{position:fixed;top:16px;right:16px;background:#1f2937;color:#fff;padding:10px 16px;border-radius:6px;box-shadow:0 4px 6px rgba(0,0,0,.2);z-index:200;animation:slideIn .3s ease;font-size:13px}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.collapse-btn{cursor:pointer;padding:4px;color:#6b7280}
+.collapse-btn:hover{color:#1f2937}
+.hidden-section{display:none}
+.dragging{opacity:.5}
+.drag-handle{cursor:grab;color:#9ca3af;padding:0 4px}
+.drag-handle:active{cursor:grabbing}
+input.cell-input{border:none;background:transparent;width:100%;font-size:12px;font-family:inherit;padding:0}
+input.cell-input:focus{outline:none}
+.badge{padding:2px 6px;border-radius:999px;font-size:10px;font-weight:500}
+.badge-blue{background:#dbeafe;color:#1e40af}
+.badge-green{background:#d1fae5;color:#065f46}
+.badge-yellow{background:#fef3c7;color:#92400e}
+.badge-red{background:#fee2e2;color:#991b1b}
+.badge-gray{background:#f3f4f6;color:#4b5563}
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+h1.page-title{font-size:20px;font-weight:700;margin-bottom:14px;color:#1f2937}
+.subtitle{font-size:13px;color:#6b7280;margin-bottom:12px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100}
+.modal.show{display:flex}
+.modal-content{background:#fff;border-radius:8px;padding:16px;max-width:500px;width:90%;max-height:80vh;overflow:auto}
+.chart-placeholder{height:200px;background:#f9fafb;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:13px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ========== DATA STORE ========== */
+const DB = {
+  keys: {
+    navOrder: 'cds_nav_order',
+    collapsedSections: 'cds_collapsed_sections',
+    inquiry: 'cds_inquiry',
+    quotation: 'cds_quotation',
+    customerDev: 'cds_customer_dev',
+    contracts: 'cds_contracts',
+    sampling: 'cds_sampling',
+    shipment: 'cds_shipment',
+    payment: 'cds_payment',
+    shippingPlan: 'cds_shipping_plan',
+    logistics: 'cds_logistics',
+    customs: 'cds_customs',
+  },
+  get(k, def) { 
+    try { 
+      const v = localStorage.getItem(this.keys[k]); 
+      if(!v) return def;
+      const parsed = JSON.parse(v);
+      // Fix: ensure arrays are arrays
+      if(Array.isArray(def) && !Array.isArray(parsed)) return def;
+      return parsed;
+    } catch { return def } 
+  },
+  set(k, v) { localStorage.setItem(this.keys[k], JSON.stringify(v)) },
+  exportAll() {
+    const data = {};
+    Object.keys(this.keys).forEach(k => data[k] = this.get(k));
+    return JSON.stringify(data, null, 2);
+  },
+  importAll(json) {
+    const data = JSON.parse(json);
+    Object.keys(data).forEach(k => { if(this.keys[k]) this.set(k, data[k]) });
+  }
+};
+
+/* ========== UTILS ========== */
+function $(sel){return document.querySelector(sel)}
+function $$(sel){return document.querySelectorAll(sel)}
+function showToast(msg, type='info'){
+  const t = document.createElement('div');
+  t.className='toast';
+  t.textContent=msg;
+  if(type==='error') t.style.background='#dc2626';
+  if(type==='success') t.style.background='#059669';
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 3000);
+}
+function uid(){return Date.now()+Math.random().toString(36).slice(2)}
+function fmtDate(d){if(!d)return'';const x=new Date(d);return isNaN(x)?d:x.toISOString().slice(0,10)}
+function downloadJSON(obj, filename){
+  const blob = new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+function readFile(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(file)})}
+function safeArr(v, def){return Array.isArray(v)?v:def}
+
+/* ========== EXCEL IMPORT/EXPORT ========== */
+async function importExcel(file, schema){
+  const buf = await readFile(file);
+  const wb = XLSX.read(buf, {type:'array'});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  if(rows.length<2) return [];
+  const headers = rows[0].map(h=>String(h).trim().replace(/[\s\u00A0\u200B-\u200D\uFEFF]+/g,'').toLowerCase());
+  console.log('Normalized headers:', headers);
+  const result = [];
+  for(let i=1;i<rows.length;i++){
+    const row = rows[i];
+    const obj = {id:uid()};
+    let matched = 0;
+    schema.forEach(s=>{
+      const idx = headers.findIndex(h=>s.aliases.some(a=>{
+        const cleanA = a.toLowerCase().replace(/[\s\u00A0\u200B-\u200D\uFEFF]+/g,'');
+        return h.includes(cleanA) || cleanA.includes(h);
+      }));
+      if(idx>=0 && idx<row.length){
+        obj[s.key] = row[idx];
+        matched++;
+      }
+    });
+    // Fallback: if remark not matched, try loose match on remaining columns
+    if(!obj.remark && !obj.Remark){
+      headers.forEach((h,hi)=>{
+        if(hi<row.length && !Object.values(obj).includes(row[hi])){
+          if(h.includes('remark')||h.includes('note')||h.includes('memo')||h.includes('comment')||h.includes('说明')||h.includes('备注')){
+            obj.remark = row[hi];
+          }
+        }
+      });
+    }
+    result.push(obj);
+  }
+  console.log('Imported', result.length, 'rows');
+  return result;
+}
+function exportExcel(data, headers, filename){
+  const wsData = [headers.map(h=>h.label)];
+  data.forEach(row=>{wsData.push(headers.map(h=>row[h.key]||''))});
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  XLSX.writeFile(wb, filename);
+}
+
+/* ========== SCHEMAS ========== */
+const inquirySchema = [
+  {key:'inquiryNo',label:'询盘编号',aliases:['询盘编号','inquiry no','inquiry','编号']},
+  {key:'customer',label:'客户名称',aliases:['客户名称','customer','客户']},
+  {key:'product',label:'产品名称',aliases:['产品名称','product name','产品']},
+  {key:'spec',label:'产品规格',aliases:['产品规格','spec','规格']},
+  {key:'qty',label:'询盘数量',aliases:['询盘数量','quantity','qty','数量']},
+  {key:'unit',label:'数量单位',aliases:['数量单位','unit','单位']},
+  {key:'targetPrice',label:'目标价格',aliases:['目标价格','target price','价格']},
+  {key:'currency',label:'币种',aliases:['币种','currency']},
+  {key:'inquiryDate',label:'询盘日期',aliases:['询盘日期','inquiry date','日期']},
+  {key:'deadline',label:'截止日期',aliases:['截止日期','deadline']},
+  {key:'status',label:'状态',aliases:['状态','status']},
+  {key:'owner',label:'负责人',aliases:['负责人','owner','负责人']},
+  {key:'remark',label:'备注',aliases:['备注','remark','note','notes','memo','comment','说明']},
+];
+const quotationSchema = [
+  {key:'quotationNo',label:'报价编号',aliases:['报价编号','quotation no','quotation','编号']},
+  {key:'relatedInquiry',label:'关联询盘',aliases:['关联询盘','related inquiry','关联']},
+  {key:'customer',label:'客户名称',aliases:['客户名称','customer','客户']},
+  {key:'product',label:'产品名称',aliases:['产品名称','product name','产品']},
+  {key:'spec',label:'产品规格',aliases:['产品规格','spec','规格']},
+  {key:'qty',label:'报价数量',aliases:['报价数量','quantity','qty','数量']},
+  {key:'unitPrice',label:'单价',aliases:['单价','unit price']},
+  {key:'totalPrice',label:'总价',aliases:['总价','total price','total']},
+  {key:'currency',label:'币种',aliases:['币种','currency']},
+  {key:'validUntil',label:'有效期至',aliases:['有效期至','valid until','有效期']},
+  {key:'quotationDate',label:'报价日期',aliases:['报价日期','quotation date','日期']},
+  {key:'status',label:'状态',aliases:['状态','status']},
+  {key:'remark',label:'备注',aliases:['备注','remark','note','notes','memo','comment','说明']},
+];
+const customerDevSchema = [
+  {key:'customerNo',label:'客户编号',aliases:['客户编号','customer no','编号']},
+  {key:'customerName',label:'客户名称',aliases:['客户名称','customer name','客户']},
+  {key:'region',label:'国家/地区',aliases:['国家/地区','region','country','国家','地区']},
+  {key:'contact',label:'联系人',aliases:['联系人','contact','联系人']},
+  {key:'email',label:'邮箱',aliases:['邮箱','email','电邮']},
+  {key:'phone',label:'电话',aliases:['电话','phone','tel']},
+  {key:'devStatus',label:'开发状态',aliases:['开发状态','dev status','状态']},
+  {key:'priority',label:'优先级',aliases:['优先级','priority']},
+  {key:'source',label:'来源渠道',aliases:['来源渠道','source','渠道']},
+  {key:'remark',label:'备注',aliases:['备注','remark','note','memo','comment']},
+  {key:'createDate',label:'创建日期',aliases:['创建日期','create date']},
+  {key:'followDate',label:'跟进日期',aliases:['跟进日期','follow date','跟进']},
+];
+const contractsSchema = [
+  {key:'piNumber',label:'PI Number',aliases:['pi number','pi no','pi#','pi','p.i']},
+  {key:'season',label:'Season',aliases:['season','季']},
+  {key:'customer',label:'Customer',aliases:['customer','客户']},
+  {key:'division',label:'Division',aliases:['division','部门']},
+  {key:'orderQty',label:'Order Qty',aliases:['order qty','qty']},
+  {key:'unit',label:'Unit',aliases:['unit','单位']},
+  {key:'orderQtyKg',label:'Order Qty KG',aliases:['order qty kg','qty kg']},
+  {key:'poDate',label:'PO Date',aliases:['po date','date']},
+  {key:'firstShipment',label:'First Shipment',aliases:['first shipment','first']},
+  {key:'lastShipment',label:'Last Shipment',aliases:['last shipment','last']},
+  {key:'piAmount',label:'PI Amount USD',aliases:['pi amount usd','amount usd','amount','pi amount']},
+  {key:'paymentMethod',label:'Payment Method',aliases:['payment method','payment']},
+  {key:'poRemark',label:'PO Remark',aliases:['po remark','remark','备注']},
+  {key:'pileUpPo',label:'Pile Up PO',aliases:['pile up po','pileup']},
+  {key:'piStatus',label:'PI Status',aliases:['pi status','status']},
+  {key:'dyeingPlan',label:'Dyeing Plan',aliases:['dyeing plan']},
+  {key:'costing',label:'Costing',aliases:['costing','成本']},
+  {key:'dyeingInstruction',label:'Dyeing Instruction',aliases:['dyeing instruction']},
+  {key:'preproductionRecap',label:'Preproduction Recap',aliases:['preproduction recap']},
+  {key:'processingContract',label:'Processing Contract',aliases:['processing contract']},
+  {key:'unitPriceUpdate',label:'Unit Price Update Chart',aliases:['unit price update chart','unit price update','price update']},
+];
+const samplingSchema = [
+  {key:'sampleNo',label:'样单号',aliases:['样单号','sample no','样单']},
+  {key:'customer',label:'客户名称',aliases:['客户名称','customer','客户']},
+  {key:'sampleType',label:'样品类型',aliases:['样品类型','sample type','类型']},
+  {key:'product',label:'产品名称',aliases:['产品名称','product name','产品']},
+  {key:'colorSpec',label:'颜色/规格',aliases:['颜色/规格','color spec','颜色','规格']},
+  {key:'qty',label:'样品数量',aliases:['样品数量','quantity','qty','数量']},
+  {key:'unit',label:'单位',aliases:['单位','unit']},
+  {key:'sampleDate',label:'打样日期',aliases:['打样日期','sample date']},
+  {key:'requiredDate',label:'要求完成日期',aliases:['要求完成日期','required date']},
+  {key:'actualDate',label:'实际完成日期',aliases:['实际完成日期','actual date']},
+  {key:'status',label:'状态',aliases:['状态','status']},
+  {key:'cost',label:'费用',aliases:['费用','cost','价格']},
+  {key:'remark',label:'备注',aliases:['备注','remark','note','memo','comment']},
+];
+const shipmentSchema = [
+  {key:'invNo',label:'INV No',aliases:['inv no','inv','invoice no','invoice']},
+  {key:'invDate',label:'INV Date',aliases:['inv date','invoice date']},
+  {key:'exportTitle',label:'Export Title',aliases:['export title','title']},
+  {key:'poNo',label:'PO No',aliases:['po no','po','p.o']},
+  {key:'customer',label:'Customer',aliases:['customer','客户']},
+  {key:'division',label:'Division',aliases:['division','部门']},
+  {key:'shippedQtyY',label:'Shipped Qty Y',aliases:['shipped qty y','qty y']},
+  {key:'shippedQtyKg',label:'Shipped Qty KG',aliases:['shipped qty kg','qty kg']},
+  {key:'invAmount',label:'INV Amount USD',aliases:['inv amount usd','amount usd','inv amount']},
+  {key:'focQtyY',label:'FOC Qty Y',aliases:['foc qty y']},
+  {key:'focQtyKg',label:'FOC Qty KG',aliases:['foc qty kg']},
+  {key:'focAmount',label:'FOC Amount USD',aliases:['foc amount usd','foc amount']},
+  {key:'chargedQtyKg',label:'Charged Qty KG',aliases:['charged qty kg']},
+  {key:'paymentDate',label:'Payment Date',aliases:['payment date']},
+  {key:'amountReceived',label:'Amount Received USD',aliases:['amount received usd','received usd','amount received']},
+  {key:'unpaidAmount',label:'Unpaid Amount',aliases:['unpaid amount']},
+  {key:'fullyReceived',label:'Fully Received',aliases:['fully received']},
+  {key:'paymentDocs',label:'Payment Docs',aliases:['payment docs','paymentdocs','payment doc','payment document','付款文件']},
+  {key:'remark',label:'Remark',aliases:['remark','remarks','notes','note','备注','附注','memo','comment','description','说明','remarksnote','remarknote','remarknotes']},
+];
+const paymentSchema = [
+  {key:'invNo',label:'发票号',aliases:['发票号','inv no','invoice']},
+  {key:'customer',label:'客户名称',aliases:['客户名称','customer','客户']},
+  {key:'contractNo',label:'合同号',aliases:['合同号','contract no','contract']},
+  {key:'receivable',label:'应收金额USD',aliases:['应收金额usd','receivable','应收']},
+  {key:'received',label:'实收金额USD',aliases:['实收金额usd','received','实收']},
+  {key:'unpaid',label:'未收金额USD',aliases:['未收金额usd','unpaid','未收']},
+  {key:'paymentDate',label:'收款日期',aliases:['收款日期','payment date']},
+  {key:'paymentMethod',label:'付款方式',aliases:['付款方式','payment method']},
+  {key:'bankSlip',label:'银行水单号',aliases:['银行水单号','bank slip']},
+  {key:'verifyStatus',label:'核销状态',aliases:['核销状态','verify status']},
+  {key:'verifyDate',label:'核销日期',aliases:['核销日期','verify date']},
+  {key:'remark',label:'备注',aliases:['备注','remark','note','memo','comment']},
+];
+const shippingPlanSchema = [
+  {key:'bookingDate',label:'Booking Date',aliases:['booking date']},
+  {key:'customer',label:'Customer',aliases:['customer','客户']},
+  {key:'status',label:'Status',aliases:['status','状态']},
+  {key:'loadingDate',label:'Loading Date',aliases:['loading date']},
+  {key:'expectedEtd',label:'Expected ETD',aliases:['expected etd']},
+  {key:'siCutOff',label:'SI Cut Off',aliases:['si cut off','cut off']},
+  {key:'confirmedEtd',label:'Confirmed ETD',aliases:['confirmed etd']},
+  {key:'exportTitle',label:'Export Title',aliases:['export title']},
+  {key:'departurePort',label:'Departure Port',aliases:['departure port','pol']},
+  {key:'destination',label:'Destination',aliases:['destination','pod']},
+  {key:'vsslTruck',label:'VSSL TRUCK',aliases:['vssl truck','vessel','truck']},
+  {key:'forwarder',label:'Forwarder',aliases:['forwarder','货代']},
+  {key:'containerType',label:'Container Type',aliases:['container type','container']},
+  {key:'estPk',label:'Est PK',aliases:['est pk','pk']},
+  {key:'estKg',label:'Est KG',aliases:['est kg']},
+  {key:'estCbm',label:'Est CBM',aliases:['est cbm','cbm']},
+  {key:'spDate',label:'Shipping Plan Date',aliases:['shipping plan date']},
+  {key:'sp1',label:'Shipping Plan 1',aliases:['shipping plan 1']},
+  {key:'spDocs',label:'Shipping Notify Docs',aliases:['shipping notify docs','notify docs']},
+  {key:'spDate2',label:'Shipping Plan Date 2',aliases:['shipping plan date 2']},
+  {key:'sp2',label:'Shipping Plan 2',aliases:['shipping plan 2']},
+  {key:'spDate3',label:'Shipping Plan Date 3',aliases:['shipping plan date 3']},
+  {key:'sp3',label:'Shipping Plan 3',aliases:['shipping plan 3']},
+];
+const logisticsSchema = [
+  {key:'trackingNo',label:'运单号',aliases:['运单号','tracking no','waybill']},
+  {key:'invNo',label:'发票号',aliases:['发票号','inv no','invoice']},
+  {key:'carrier',label:'承运商',aliases:['承运商','carrier','运输商']},
+  {key:'transportMode',label:'运输方式',aliases:['运输方式','transport mode','运输']},
+  {key:'pol',label:'起运港',aliases:['起运港','pol','departure']},
+  {key:'pod',label:'目的港',aliases:['目的港','pod','destination']},
+  {key:'currentStatus',label:'当前状态',aliases:['当前状态','current status','状态']},
+  {key:'departureDate',label:'离港日期',aliases:['离港日期','departure date','etd']},
+  {key:'eta',label:'预计到达',aliases:['预计到达','eta','预计']},
+  {key:'ata',label:'实际到达',aliases:['实际到达','ata','实际']},
+  {key:'pieces',label:'件数',aliases:['件数','pieces','件']},
+  {key:'grossWeight',label:'毛重KG',aliases:['毛重kg','gross weight','毛重']},
+  {key:'volume',label:'体积CBM',aliases:['体积cbm','volume','体积']},
+  {key:'remark',label:'追踪备注',aliases:['追踪备注','remark','备注','note']},
+];
+const customsSchema = [
+  {key:'customsNo',label:'报关单号',aliases:['报关单号','customs no','报关']},
+  {key:'invNo',label:'发票号',aliases:['发票号','inv no','invoice']},
+  {key:'contractNo',label:'合同号',aliases:['合同号','contract no','contract']},
+  {key:'exportDate',label:'出口日期',aliases:['出口日期','export date']},
+  {key:'customsPort',label:'申报口岸',aliases:['申报口岸','customs port','口岸']},
+  {key:'destination',label:'目的国',aliases:['目的国','destination','目的']},
+  {key:'tradeMode',label:'贸易方式',aliases:['贸易方式','trade mode']},
+  {key:'term',label:'成交方式',aliases:['成交方式','term','贸易条款']},
+  {key:'pieces',label:'件数',aliases:['件数','pieces']},
+  {key:'grossWeight',label:'毛重KG',aliases:['毛重kg','gross weight']},
+  {key:'netWeight',label:'净重KG',aliases:['净重kg','net weight']},
+  {key:'customsAmount',label:'报关金额USD',aliases:['报关金额usd','customs amount','报关金额']},
+  {key:'customsStatus',label:'报关状态',aliases:['报关状态','customs status']},
+  {key:'remark',label:'单证备注',aliases:['单证备注','remark','备注']},
+];
+const yarnTrackingSchema = [
+  {key:'poNumber',label:'PO Number',aliases:['po number','po no','po']},
+  {key:'styleNo',label:'Style No',aliases:['style no','style','款式']},
+  {key:'colorCode',label:'Color Code',aliases:['color code','color','颜色']},
+  {key:'yarnInHouse',label:'Yarn In-house (days)',aliases:['yarn in-house','yarn in house','yarn inhouse','yarn']},
+  {key:'knittingLT',label:'Knitting L/T (days)',aliases:['knitting l/t','knitting lt','knitting']},
+  {key:'yarnKnittingWeeks',label:'Yarn/Knitting L/T (weeks)',aliases:['yarn/knitting','yarn knitting','weeks']},
+  {key:'dyeingDays',label:'Dyeing (days)',aliases:['dyeing','染色']},
+  {key:'finishingDays',label:'Finishing (days)',aliases:['finishing','整理']},
+  {key:'cuttingDays',label:'Cutting (days)',aliases:['cutting','裁剪']},
+  {key:'sewingDays',label:'Sewing (days)',aliases:['sewing','缝制']},
+  {key:'totalLT',label:'Total L/T (days)',aliases:['total l/t','total lt','total']},
+  {key:'remark',label:'备注',aliases:['备注','remark','note','memo','comment']},
+];
+
+/* ========== DEMO DATA ========== */
+const demoInquiry = [
+  {id:uid(), inquiryNo:'INQ-2026-001', customer:'Customer A', product:'Cotton T-shirt', spec:'180g/m2', qty:5000, unit:'pcs', targetPrice:4.5, currency:'USD', inquiryDate:'2026-07-01', deadline:'2026-07-15', status:'跟进中', owner:'Charles', remark:'Need sample first'},
+  {id:uid(), inquiryNo:'INQ-2026-002', customer:'Customer B', product:'Polyester Polo', spec:'200g/m2', qty:3000, unit:'pcs', targetPrice:6.0, currency:'USD', inquiryDate:'2026-07-05', deadline:'2026-07-20', status:'已报价', owner:'Charles', remark:'Price sensitive'},
+];
+const demoQuotation = [
+  {id:uid(), quotationNo:'QT-2026-001', relatedInquiry:'INQ-2026-001', customer:'Customer A', product:'Cotton T-shirt', spec:'180g/m2', qty:5000, unitPrice:4.8, totalPrice:24000, currency:'USD', validUntil:'2026-08-01', quotationDate:'2026-07-03', status:'待确认', remark:'FOB Shanghai'},
+];
+const demoCustomerDev = [
+  {id:uid(), customerNo:'CUST-001', customerName:'ABC Trading', region:'USA', contact:'John Smith', email:'john@abc.com', phone:'+1-555-1234', devStatus:'开发中', priority:'高', source:'展会', remark:'Big potential', createDate:'2026-01-15', followDate:'2026-07-10'},
+  {id:uid(), customerNo:'CUST-002', customerName:'XYZ GmbH', region:'Germany', contact:'Hans Mueller', email:'hans@xyz.de', phone:'+49-89-5678', devStatus:'已合作', priority:'中', source:'B2B', remark:'Repeat orders', createDate:'2025-08-20', followDate:'2026-07-12'},
+];
+const demoContracts = [
+  {id:uid(), piNumber:'PI-2026-001', season:'SS26', customer:'Customer A', division:'Division 1', orderQty:10000, unit:'pcs', orderQtyKg:1800, poDate:'2026-06-15', firstShipment:'2026-07-20', lastShipment:'2026-08-20', piAmount:55000, paymentMethod:'T/T 30% deposit', poRemark:'Urgent', pileUpPo:'No', piStatus:'Confirmed', dyeingPlan:'Plan A', costing:'Done', dyeingInstruction:'Sent', preproductionRecap:'Approved', processingContract:'Signed', unitPriceUpdate:'Chart v1'},
+  {id:uid(), piNumber:'PI-2026-002', season:'FW26', customer:'Customer B', division:'Division 2', orderQty:5000, unit:'pcs', orderQtyKg:1000, poDate:'2026-06-20', firstShipment:'2026-08-01', lastShipment:'2026-09-01', piAmount:36000, paymentMethod:'L/C at sight', poRemark:'Normal', pileUpPo:'Yes', piStatus:'Pending', dyeingPlan:'Plan B', costing:'In progress', dyeingInstruction:'Pending', preproductionRecap:'', processingContract:'', unitPriceUpdate:''},
+];
+const demoSampling = [
+  {id:uid(), sampleNo:'SP-2026-001', customer:'Customer A', sampleType:'开发样', product:'Cotton T-shirt', colorSpec:'White / M', qty:3, unit:'pcs', sampleDate:'2026-06-20', requiredDate:'2026-06-27', actualDate:'2026-06-25', status:'已完成', cost:150, remark:'Approved'},
+  {id:uid(), sampleNo:'SP-2026-002', customer:'Customer C', sampleType:'产前样', product:'Polyester Polo', colorSpec:'Navy / L', qty:5, unit:'pcs', sampleDate:'2026-07-01', requiredDate:'2026-07-10', actualDate:'', status:'进行中', cost:200, remark:'Waiting fabric'},
+];
+const demoShipment = [
+  {id:uid(), invNo:'INV-2026-001', invDate:'2026-07-10', exportTitle:'Shipment 1', poNo:'PO-001', customer:'Customer A', division:'Div1', shippedQtyY:8000, shippedQtyKg:1440, invAmount:44000, focQtyY:200, focQtyKg:36, focAmount:1100, chargedQtyKg:1404, paymentDate:'2026-07-12', amountReceived:44000, unpaidAmount:0, fullyReceived:'Yes', paymentDocs:'Bank Slip', remark:'First batch'},
+  {id:uid(), invNo:'INV-2026-002', invDate:'2026-07-15', exportTitle:'Shipment 2', poNo:'PO-002', customer:'Customer B', division:'Div2', shippedQtyY:5000, shippedQtyKg:900, invAmount:36000, focQtyY:0, focQtyKg:0, focAmount:0, chargedQtyKg:900, paymentDate:'', amountReceived:0, unpaidAmount:36000, fullyReceived:'No', paymentDocs:'', remark:'Pending payment'},
+];
+const demoPayment = [
+  {id:uid(), invNo:'INV-2026-001', customer:'Customer A', contractNo:'PI-2026-001', receivable:44000, received:44000, unpaid:0, paymentDate:'2026-07-12', paymentMethod:'T/T', bankSlip:'BS-001', verifyStatus:'已核销', verifyDate:'2026-07-13', remark:'Full payment'},
+  {id:uid(), invNo:'INV-2026-002', customer:'Customer B', contractNo:'PI-2026-002', receivable:36000, received:0, unpaid:36000, paymentDate:'', paymentMethod:'L/C', bankSlip:'', verifyStatus:'未核销', verifyDate:'', remark:'Waiting'},
+];
+const demoShippingPlan = [
+  {id:uid(), bookingDate:'2026-07-05', customer:'Customer A', status:'Confirmed', loadingDate:'2026-07-18', expectedEtd:'2026-07-20', siCutOff:'2026-07-16', confirmedEtd:'2026-07-20', exportTitle:'Shpt 1', departurePort:'Shanghai', destination:'Los Angeles', vsslTruck:'EVER GLORY', forwarder:'ABC Forwarder', containerType:'40HQ', estPk:1000, estKg:1500, estCbm:25, spDate:'2026-07-01', sp1:'Plan A', spDocs:'Sent', spDate2:'2026-07-08', sp2:'Plan B', spDate3:'', sp3:''},
+];
+const demoLogistics = [
+  {id:uid(), trackingNo:'TRK-001', invNo:'INV-2026-001', carrier:'COSCO', transportMode:'海运', pol:'Shanghai', pod:'Los Angeles', currentStatus:'运输中', departureDate:'2026-07-20', eta:'2026-08-05', ata:'', pieces:1000, grossWeight:1500, volume:25, remark:'On schedule'},
+  {id:uid(), trackingNo:'TRK-002', invNo:'INV-2026-002', carrier:'Maersk', transportMode:'海运', pol:'Ningbo', pod:'Rotterdam', currentStatus:'已订舱', departureDate:'', eta:'2026-08-15', ata:'', pieces:500, grossWeight:900, volume:18, remark:'Booking confirmed'},
+];
+const demoCustoms = [
+  {id:uid(), customsNo:'CUST-2026-001', invNo:'INV-2026-001', contractNo:'PI-2026-001', exportDate:'2026-07-18', customsPort:'Shanghai', destination:'USA', tradeMode:'一般贸易', term:'FOB', pieces:1000, grossWeight:1500, netWeight:1480, customsAmount:44000, customsStatus:'已放行', remark:'Normal'},
+];
+const demoYarnTracking = [
+  {id:uid(), poNumber:'PO-001', styleNo:'ST-2026-A', colorCode:'White', yarnInHouse:5, knittingLT:7, yarnKnittingWeeks:1.71, dyeingDays:3, finishingDays:2, cuttingDays:2, sewingDays:5, totalLT:24, remark:'Normal schedule'},
+  {id:uid(), poNumber:'PO-002', styleNo:'ST-2026-B', colorCode:'Navy', yarnInHouse:3, knittingLT:5, yarnKnittingWeeks:1.14, dyeingDays:2, finishingDays:1, cuttingDays:1, sewingDays:3, totalLT:15, remark:'Urgent order'},
+];
+
+function initData() {
+  if(!DB.get('inquiry', null)) DB.set('inquiry', demoInquiry);
+  if(!DB.get('quotation', null)) DB.set('quotation', demoQuotation);
+  if(!DB.get('customerDev', null)) DB.set('customerDev', demoCustomerDev);
+  if(!DB.get('contracts', null)) DB.set('contracts', demoContracts);
+  if(!DB.get('sampling', null)) DB.set('sampling', demoSampling);
+  if(!DB.get('shipment', null)) DB.set('shipment', demoShipment);
+  if(!DB.get('payment', null)) DB.set('payment', demoPayment);
+  if(!DB.get('shippingPlan', null)) DB.set('shippingPlan', demoShippingPlan);
+  if(!DB.get('logistics', null)) DB.set('logistics', demoLogistics);
+  if(!DB.get('customs', null)) DB.set('customs', demoCustoms);
+  if(!DB.get('yarnTracking', null)) DB.set('yarnTracking', demoYarnTracking);
+}
+
+/* ========== GENERIC TABLE RENDERER ========== */
+function renderTable(containerId, data, schema, options={}){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const {editable=true, onChange, onDelete, filters, search, compact=false} = options;
+  let displayData = [...data];
+  if(search){
+    const s = search.toLowerCase();
+    displayData = displayData.filter(row=>schema.some(col=>String(row[col.key]||'').toLowerCase().includes(s)));
+  }
+  if(filters){
+    Object.keys(filters).forEach(key=>{
+      if(filters[key]) displayData = displayData.filter(row=>String(row[key]||'')===filters[key]);
+    });
+  }
+
+  let html = '<table><thead><tr>';
+  schema.forEach(col=>{
+    html += `<th data-key="${col.key}">${col.label}<span class="filter-icon">▼</span><div class="filter-dropdown" id="filter-${containerId}-${col.key}"></div></th>`;
+  });
+  if(onDelete) html += '<th style="width:60px">Action</th>';
+  html += '</tr></thead><tbody>';
+  displayData.forEach((row, idx)=>{
+    html += '<tr data-idx="'+idx+'">';
+    schema.forEach(col=>{
+      const val = row[col.key]||'';
+      html += `<td data-key="${col.key}" ${editable?'contenteditable="true"':''} title="${val}">${val}</td>`;
+    });
+    if(onDelete) html += `<td><button class="btn btn-danger btn-sm" onclick="${onDelete}('${row.id}')">Del</button></td>`;
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  if(displayData.length===0) html += '<div style="padding:20px;text-align:center;color:#9ca3af">No data found</div>';
+  container.innerHTML = html;
+
+  // Cell edit handlers
+  if(editable){
+    container.querySelectorAll('td[contenteditable="true"]').forEach(td=>{
+      td.addEventListener('blur', function(){
+        const rowIdx = parseInt(this.closest('tr').dataset.idx);
+        const key = this.dataset.key;
+        const newVal = this.textContent.trim();
+        if(data[rowIdx] && data[rowIdx][key] !== newVal){
+          data[rowIdx][key] = newVal;
+          this.title = newVal;
+          if(onChange) onChange(data);
+        }
+      });
+      td.addEventListener('keydown', function(e){if(e.key==='Enter'){e.preventDefault();this.blur()}});
+    });
+  }
+
+  // Filter dropdowns
+  schema.forEach(col=>{
+    const th = container.querySelector(`th[data-key="${col.key}"]`);
+    const dd = container.querySelector(`#filter-${containerId}-${col.key}`);
+    if(th && dd){
+      const values = [...new Set(data.map(r=>r[col.key]).filter(Boolean))];
+      dd.innerHTML = '<div class="filter-option" data-val="">(All)</div>' + values.map(v=>`<div class="filter-option" data-val="${v}">${v}</div>`).join('');
+      th.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        document.querySelectorAll('.filter-dropdown').forEach(d=>{if(d!==dd)d.classList.remove('show')});
+        dd.classList.toggle('show');
+      });
+      dd.querySelectorAll('.filter-option').forEach(opt=>{
+        opt.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          dd.classList.remove('show');
+          if(options.onFilter) options.onFilter(col.key, opt.dataset.val);
+        });
+      });
+    }
+  });
+}
+
+/* ========== GENERIC PAGE BUILDER ========== */
+function buildPageToolbar(pageKey, label, schema, options={}){
+  const {searchKey, filtersKey, addFn, importFn, exportFn, backupFn, restoreFn} = options;
+  const searchVal = window[searchKey] || '';
+  const hasTab = options.tabKey;
+  let tabHtml = '';
+  if(hasTab){
+    const tab = window[options.tabKey] || 'df';
+    tabHtml = `<button class="btn ${tab==='df'?'btn-primary':'btn-secondary'}" onclick="window.${options.tabKey}='df';render${pageKey}()">DF</button>
+    <button class="btn ${tab==='3x3'?'btn-primary':'btn-secondary'}" onclick="window.${options.tabKey}='3x3';render${pageKey}()">3X3</button>`;
+  }
+  return `<div class="toolbar">
+    ${tabHtml}
+    <input class="search-input" placeholder="Search..." value="${searchVal}" oninput="window.${searchKey}=this.value;render${pageKey}()">
+    <button class="btn btn-success btn-sm" onclick="${addFn}()">+ Add Row</button>
+    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('${pageKey}-import').click()">📥 Import Excel</button>
+    <input type="file" id="${pageKey}-import" style="display:none" accept=".xlsx,.xls" onchange="${importFn}(this)">
+    <button class="btn btn-secondary btn-sm" onclick="${exportFn}()">📤 Export Excel</button>
+    <button class="btn btn-secondary btn-sm" onclick="${backupFn}()">💾 Backup JSON</button>
+    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('${pageKey}-restore').click()">📂 Restore JSON</button>
+    <input type="file" id="${pageKey}-restore" style="display:none" accept=".json" onchange="${restoreFn}(this)">
+  </div>`;
+}
+
+/* ========== NAVIGATION ========== */
+const defaultNav = [
+  {id:'dashboard',label:'仪表盘',icon:'📊'},
+  {id:'inquiry',label:'询盘管理',icon:'📨'},
+  {id:'quotation',label:'报价管理',icon:'💰'},
+  {id:'customerDev',label:'客户开发',icon:'🤝'},
+  {id:'contracts',label:'合同管理',icon:'📄'},
+  {id:'sampling',label:'打样管理',icon:'🎨'},
+  {id:'yarnTracking',label:'纱坯追踪',icon:'🧵'},
+  {id:'shipment',label:'发货数据管理',icon:'📦'},
+  {id:'payment',label:'收款管理',icon:'💵'},
+  {id:'shippingPlan',label:'订舱计划',icon:'🚢'},
+  {id:'logistics',label:'物流追踪',icon:'🚚'},
+  {id:'customs',label:'报关管理',icon:'🛃'},
+];
+
+function renderNav(){
+  const order = safeArr(DB.get('navOrder', defaultNav.map(n=>n.id)), defaultNav.map(n=>n.id));
+  const items = order.map(id=>defaultNav.find(n=>n.id===id)).filter(Boolean);
+  const current = location.hash.slice(1)||'dashboard';
+  let html = `<div style="padding:14px 18px;font-size:16px;font-weight:700;border-bottom:1px solid #334155;display:flex;align-items:center;gap:8px">
+    <span style="font-size:22px">📊</span><span class="text">CharlesDataSync</span>
+  </div>`;
+  items.forEach((item, idx)=>{
+    html += `<div class="nav-item ${item.id===current?'active':''}" data-id="${item.id}" draggable="true" data-idx="${idx}">
+      <span class="icon">${item.icon}</span><span class="text">${item.label}</span>
+    </div>`;
+  });
+  html += `<div style="margin-top:auto;padding:14px;border-top:1px solid #334155">
+    <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center" onclick="resetNav()">↺ 恢复默认排序</button>
+  </div>`;
+  document.getElementById('sidebar').innerHTML = html;
+
+  // Drag sort
+  let dragSrc = null;
+  document.querySelectorAll('.nav-item').forEach(item=>{
+    item.addEventListener('dragstart', function(e){dragSrc=this;this.classList.add('dragging');e.dataTransfer.effectAllowed='move'});
+    item.addEventListener('dragend', function(){this.classList.remove('dragging');document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('drag-over'))});
+    item.addEventListener('dragover', function(e){e.preventDefault();this.classList.add('drag-over')});
+    item.addEventListener('dragleave', function(){this.classList.remove('drag-over')});
+    item.addEventListener('drop', function(e){
+      e.stopPropagation();
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      if(dragSrc && dragSrc!==this){
+        // Move dragSrc before the drop target in DOM
+        this.parentNode.insertBefore(dragSrc, this);
+        const newOrder = [...document.querySelectorAll('.nav-item')].map(el=>el.dataset.id);
+        DB.set('navOrder', newOrder);
+        renderNav();
+        showToast('导航排序已更新');
+      }
+    });
+    item.addEventListener('click', ()=>{location.hash=item.dataset.id});
+  });
+}
+function resetNav(){DB.set('navOrder', defaultNav.map(n=>n.id));renderNav();showToast('已恢复默认排序');}
+
+/* ========== PAGES ========== */
+function renderDashboard(){
+  const inquiry = DB.get('inquiry',[]);
+  const quotation = DB.get('quotation',[]);
+  const customerDev = DB.get('customerDev',[]);
+  const contracts = DB.get('contracts',[]);
+  const sampling = DB.get('sampling',[]);
+  const shipment = DB.get('shipment',[]);
+  const payment = DB.get('payment',[]);
+  const shippingPlan = DB.get('shippingPlan',[]);
+  const logistics = DB.get('logistics',[]);
+  const customs = DB.get('customs',[]);
+  const totalReceivable = payment.reduce((a,b)=>a+(parseFloat(b.receivable)||0),0);
+  const totalReceived = payment.reduce((a,b)=>a+(parseFloat(b.received)||0),0);
+  const totalUnpaid = payment.reduce((a,b)=>a+(parseFloat(b.unpaid)||0),0);
+  
+  document.getElementById('dashboard').innerHTML = `
+    <h1 class="page-title">仪表盘 Dashboard</h1>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-value">${inquiry.length}</div><div class="kpi-label">询盘数</div></div>
+      <div class="kpi-card" style="background:linear-gradient(135deg,#10b981,#059669)"><div class="kpi-value">${quotation.length}</div><div class="kpi-label">报价数</div></div>
+      <div class="kpi-card" style="background:linear-gradient(135deg,#f59e0b,#d97706)"><div class="kpi-value">${contracts.length}</div><div class="kpi-label">合同/PI</div></div>
+      <div class="kpi-card" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)"><div class="kpi-value">${sampling.length}</div><div class="kpi-label">打样单</div></div>
+      <div class="kpi-card" style="background:linear-gradient(135deg,#ec4899,#db2777)"><div class="kpi-value">${shipment.length}</div><div class="kpi-label">发货单</div></div>
+      <div class="kpi-card"><div class="kpi-value">$${totalReceived.toLocaleString()}</div><div class="kpi-label">已收金额</div></div>
+      <div class="kpi-card" style="background:linear-gradient(135deg,#ef4444,#dc2626)"><div class="kpi-value">$${totalUnpaid.toLocaleString()}</div><div class="kpi-label">未收金额</div></div>
+      <div class="kpi-card" style="background:linear-gradient(135deg,#06b6d4,#0891b2)"><div class="kpi-value">${logistics.filter(l=>l.currentStatus==='运输中').length}</div><div class="kpi-label">运输中</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+      ${defaultNav.slice(1).map(n=>`<div class="section-card" style="cursor:pointer" onclick="location.hash='${n.id}'">
+        <div style="font-size:28px;margin-bottom:6px">${n.icon}</div>
+        <div style="font-weight:600;font-size:14px">${n.label}</div>
+      </div>`).join('')}
+    </div>
+  `;
+}
+
+function renderInquiry(){
+  const data = DB.get('inquiry',[]);
+  const filters = window.inquiryFilters || {};
+  const search = window.inquirySearch || '';
+  document.getElementById('inquiry').innerHTML = `
+    <h1 class="page-title">询盘管理</h1>
+    <div class="toolbar">
+      <input class="search-input" placeholder="Search..." value="${search}" oninput="window.inquirySearch=this.value;renderInquiry()">
+      <button class="btn btn-success btn-sm" onclick="addInquiryRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('inquiry-import').click()">📥 Import Excel</button>
+      <input type="file" id="inquiry-import" style="display:none" accept=".xlsx,.xls" onchange="importInquiryExcel(this)">
+      <button class="btn btn-secondary btn-sm" onclick="exportInquiryExcel()">📤 Export Excel</button>
+      <button class="btn btn-secondary btn-sm" onclick="backupInquiry()">💾 Backup JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('inquiry-restore').click()">📂 Restore JSON</button>
+      <input type="file" id="inquiry-restore" style="display:none" accept=".json" onchange="restoreInquiry(this)">
+    </div>
+    <div class="table-container" id="inquiry-table"></div>
+  `;
+  renderTable('inquiry-table', data, inquirySchema, {
+    editable:true, onChange:d=>DB.set('inquiry',d), onDelete:'deleteInquiry',
+    filters, search, onFilter:(k,v)=>{window.inquiryFilters={...filters,[k]:v};renderInquiry();}
+  });
+}
+window.addInquiryRow = function(){
+  const data = DB.get('inquiry',[]);
+  data.push({id:uid(), inquiryNo:'', customer:'', product:'', spec:'', qty:'', unit:'', targetPrice:'', currency:'', inquiryDate:'', deadline:'', status:'', owner:'', remark:''});
+  DB.set('inquiry', data); renderInquiry(); showToast('Row added');
+};
+window.deleteInquiry = function(id){
+  DB.set('inquiry', DB.get('inquiry',[]).filter(r=>r.id!==id)); renderInquiry(); showToast('Row deleted');
+};
+window.importInquiryExcel = async function(input){
+  const file = input.files[0]; if(!file) return;
+  const imported = await importExcel(file, inquirySchema);
+  if(imported.length===0){showToast('No data imported','error');return;}
+  DB.set('inquiry', [...DB.get('inquiry',[]), ...imported]); renderInquiry(); showToast(`Imported ${imported.length} rows`); input.value='';
+};
+window.exportInquiryExcel = function(){
+  exportExcel(DB.get('inquiry',[]), inquirySchema, `Inquiry_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Exported');
+};
+window.backupInquiry = function(){
+  downloadJSON(DB.get('inquiry',[]), `Inquiry_backup_${new Date().toISOString().slice(0,10)}.json`);
+  showToast('Backup saved');
+};
+window.restoreInquiry = function(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{try{const data=JSON.parse(e.target.result);DB.set('inquiry',Array.isArray(data)?data:(data.inquiry||[]));renderInquiry();showToast('Restored');}catch{showToast('Invalid JSON','error');}};
+  reader.readAsText(file); input.value='';
+};
+
+function renderQuotation(){
+  const data = DB.get('quotation',[]);
+  const filters = window.quotationFilters || {};
+  const search = window.quotationSearch || '';
+  document.getElementById('quotation').innerHTML = `
+    <h1 class="page-title">报价管理</h1>
+    <div class="toolbar">
+      <input class="search-input" placeholder="Search..." value="${search}" oninput="window.quotationSearch=this.value;renderQuotation()">
+      <button class="btn btn-success btn-sm" onclick="addQuotationRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('quotation-import').click()">📥 Import Excel</button>
+      <input type="file" id="quotation-import" style="display:none" accept=".xlsx,.xls" onchange="importQuotationExcel(this)">
+      <button class="btn btn-secondary btn-sm" onclick="exportQuotationExcel()">📤 Export Excel</button>
+      <button class="btn btn-secondary btn-sm" onclick="backupQuotation()">💾 Backup JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('quotation-restore').click()">📂 Restore JSON</button>
+      <input type="file" id="quotation-restore" style="display:none" accept=".json" onchange="restoreQuotation(this)">
+    </div>
+    <div class="table-container" id="quotation-table"></div>
+  `;
+  renderTable('quotation-table', data, quotationSchema, {
+    editable:true, onChange:d=>DB.set('quotation',d), onDelete:'deleteQuotation',
+    filters, search, onFilter:(k,v)=>{window.quotationFilters={...filters,[k]:v};renderQuotation();}
+  });
+}
+window.addQuotationRow = function(){
+  const data = DB.get('quotation',[]);
+  data.push({id:uid(), quotationNo:'', relatedInquiry:'', customer:'', product:'', spec:'', qty:'', unitPrice:'', totalPrice:'', currency:'', validUntil:'', quotationDate:'', status:'', remark:''});
+  DB.set('quotation', data); renderQuotation(); showToast('Row added');
+};
+window.deleteQuotation = function(id){
+  DB.set('quotation', DB.get('quotation',[]).filter(r=>r.id!==id)); renderQuotation(); showToast('Row deleted');
+};
+window.importQuotationExcel = async function(input){
+  const file = input.files[0]; if(!file) return;
+  const imported = await importExcel(file, quotationSchema);
+  if(imported.length===0){showToast('No data imported','error');return;}
+  DB.set('quotation', [...DB.get('quotation',[]), ...imported]); renderQuotation(); showToast(`Imported ${imported.length} rows`); input.value='';
+};
+window.exportQuotationExcel = function(){
+  exportExcel(DB.get('quotation',[]), quotationSchema, `Quotation_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Exported');
+};
+window.backupQuotation = function(){
+  downloadJSON(DB.get('quotation',[]), `Quotation_backup_${new Date().toISOString().slice(0,10)}.json`);
+  showToast('Backup saved');
+};
+window.restoreQuotation = function(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{try{const data=JSON.parse(e.target.result);DB.set('quotation',Array.isArray(data)?data:(data.quotation||[]));renderQuotation();showToast('Restored');}catch{showToast('Invalid JSON','error');}};
+  reader.readAsText(file); input.value='';
+};
+
+function renderCustomerDev(){
+  const data = DB.get('customerDev',[]);
+  const filters = window.customerDevFilters || {};
+  const search = window.customerDevSearch || '';
+  document.getElementById('customerDev').innerHTML = `
+    <h1 class="page-title">客户开发</h1>
+    <div class="toolbar">
+      <input class="search-input" placeholder="Search..." value="${search}" oninput="window.customerDevSearch=this.value;renderCustomerDev()">
+      <button class="btn btn-success btn-sm" onclick="addCustomerDevRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('customerDev-import').click()">📥 Import Excel</button>
+      <input type="file" id="customerDev-import" style="display:none" accept=".xlsx,.xls" onchange="importCustomerDevExcel(this)">
+      <button class="btn btn-secondary btn-sm" onclick="exportCustomerDevExcel()">📤 Export Excel</button>
+      <button class="btn btn-secondary btn-sm" onclick="backupCustomerDev()">💾 Backup JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('customerDev-restore').click()">📂 Restore JSON</button>
+      <input type="file" id="customerDev-restore" style="display:none" accept=".json" onchange="restoreCustomerDev(this)">
+    </div>
+    <div class="table-container" id="customerDev-table"></div>
+  `;
+  renderTable('customerDev-table', data, customerDevSchema, {
+    editable:true, onChange:d=>DB.set('customerDev',d), onDelete:'deleteCustomerDev',
+    filters, search, onFilter:(k,v)=>{window.customerDevFilters={...filters,[k]:v};renderCustomerDev();}
+  });
+}
+window.addCustomerDevRow = function(){
+  const data = DB.get('customerDev',[]);
+  data.push({id:uid(), customerNo:'', customerName:'', region:'', contact:'', email:'', phone:'', devStatus:'', priority:'', source:'', remark:'', createDate:'', followDate:''});
+  DB.set('customerDev', data); renderCustomerDev(); showToast('Row added');
+};
+window.deleteCustomerDev = function(id){
+  DB.set('customerDev', DB.get('customerDev',[]).filter(r=>r.id!==id)); renderCustomerDev(); showToast('Row deleted');
+};
+window.importCustomerDevExcel = async function(input){
+  const file = input.files[0]; if(!file) return;
+  const imported = await importExcel(file, customerDevSchema);
+  if(imported.length===0){showToast('No data imported','error');return;}
+  DB.set('customerDev', [...DB.get('customerDev',[]), ...imported]); renderCustomerDev(); showToast(`Imported ${imported.length} rows`); input.value='';
+};
+window.exportCustomerDevExcel = function(){
+  exportExcel(DB.get('customerDev',[]), customerDevSchema, `CustomerDev_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Exported');
+};
+window.backupCustomerDev = function(){
+  downloadJSON(DB.get('customerDev',[]), `CustomerDev_backup_${new Date().toISOString().slice(0,10)}.json`);
+  showToast('Backup saved');
+};
+window.restoreCustomerDev = function(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{try{const data=JSON.parse(e.target.result);DB.set('customerDev',Array.isArray(data)?data:(data.customerDev||[]));renderCustomerDev();showToast('Restored');}catch{showToast('Invalid JSON','error');}};
+  reader.readAsText(file); input.value='';
+};
+
+function renderContracts(){
+  let tab = window.contractsTab || 'df';
+  const data = tab==='df' ? DB.get('contracts',[]) : DB.get('contracts',[]); // same data for now
+  const filters = window.contractsFilters || {};
+  const search = window.contractsSearch || '';
+  document.getElementById('contracts').innerHTML = `
+    <h1 class="page-title">合同管理 / PI</h1>
+    <div class="toolbar">
+      <button class="btn ${tab==='df'?'btn-primary':'btn-secondary'} btn-sm" onclick="window.contractsTab='df';renderContracts()">DF</button>
+      <button class="btn ${tab==='3x3'?'btn-primary':'btn-secondary'} btn-sm" onclick="window.contractsTab='3x3';renderContracts()">3X3</button>
+      <input class="search-input" placeholder="Search..." value="${search}" oninput="window.contractsSearch=this.value;renderContracts()">
+      <button class="btn btn-success btn-sm" onclick="addContractsRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('contracts-import').click()">📥 Import Excel</button>
+      <input type="file" id="contracts-import" style="display:none" accept=".xlsx,.xls" onchange="importContractsExcel(this)">
+      <button class="btn btn-secondary btn-sm" onclick="exportContractsExcel()">📤 Export Excel</button>
+      <button class="btn btn-secondary btn-sm" onclick="backupContracts()">💾 Backup JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('contracts-restore').click()">📂 Restore JSON</button>
+      <input type="file" id="contracts-restore" style="display:none" accept=".json" onchange="restoreContracts(this)">
+    </div>
+    <div class="table-container" id="contracts-table"></div>
+  `;
+  renderTable('contracts-table', data, contractsSchema, {
+    editable:true, onChange:d=>DB.set('contracts',d), onDelete:'deleteContracts',
+    filters, search, onFilter:(k,v)=>{window.contractsFilters={...filters,[k]:v};renderContracts();}
+  });
+}
+window.addContractsRow = function(){
+  const data = DB.get('contracts',[]);
+  data.push({id:uid(), piNumber:'', season:'', customer:'', division:'', orderQty:'', unit:'', orderQtyKg:'', poDate:'', firstShipment:'', lastShipment:'', piAmount:'', paymentMethod:'', poRemark:'', pileUpPo:'', piStatus:'', dyeingPlan:'', costing:'', dyeingInstruction:'', preproductionRecap:'', processingContract:'', unitPriceUpdate:''});
+  DB.set('contracts', data); renderContracts(); showToast('Row added');
+};
+window.deleteContracts = function(id){
+  DB.set('contracts', DB.get('contracts',[]).filter(r=>r.id!==id)); renderContracts(); showToast('Row deleted');
+};
+window.importContractsExcel = async function(input){
+  const file = input.files[0]; if(!file) return;
+  const imported = await importExcel(file, contractsSchema);
+  if(imported.length===0){showToast('No data imported','error');return;}
+  DB.set('contracts', [...DB.get('contracts',[]), ...imported]); renderContracts(); showToast(`Imported ${imported.length} rows`); input.value='';
+};
+window.exportContractsExcel = function(){
+  exportExcel(DB.get('contracts',[]), contractsSchema, `Contracts_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Exported');
+};
+window.backupContracts = function(){
+  downloadJSON(DB.get('contracts',[]), `Contracts_backup_${new Date().toISOString().slice(0,10)}.json`);
+  showToast('Backup saved');
+};
+window.restoreContracts = function(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{try{const data=JSON.parse(e.target.result);DB.set('contracts',Array.isArray(data)?data:(data.contracts||[]));renderContracts();showToast('Restored');}catch{showToast('Invalid JSON','error');}};
+  reader.readAsText(file); input.value='';
+};
+
+function renderSampling(){
+  const data = DB.get('sampling',[]);
+  const filters = window.samplingFilters || {};
+  const search = window.samplingSearch || '';
+  document.getElementById('sampling').innerHTML = `
+    <h1 class="page-title">打样管理</h1>
+    <div class="toolbar">
+      <input class="search-input" placeholder="Search..." value="${search}" oninput="window.samplingSearch=this.value;renderSampling()">
+      <button class="btn btn-success btn-sm" onclick="addSamplingRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('sampling-import').click()">📥 Import Excel</button>
+      <input type="file" id="sampling-import" style="display:none" accept=".xlsx,.xls" onchange="importSamplingExcel(this)">
+      <button class="btn btn-secondary btn-sm" onclick="exportSamplingExcel()">📤 Export Excel</button>
+      <button class="btn btn-secondary btn-sm" onclick="backupSampling()">💾 Backup JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('sampling-restore').click()">📂 Restore JSON</button>
+      <input type="file" id="sampling-restore" style="display:none" accept=".json" onchange="restoreSampling(this)">
+    </div>
+    <div class="table-container" id="sampling-table"></div>
+  `;
+  renderTable('sampling-table', data, samplingSchema, {
+    editable:true, onChange:d=>DB.set('sampling',d), onDelete:'deleteSampling',
+    filters, search, onFilter:(k,v)=>{window.samplingFilters={...filters,[k]:v};renderSampling();}
+  });
+}
+window.addSamplingRow = function(){
+  const data = DB.get('sampling',[]);
+  data.push({id:uid(), sampleNo:'', customer:'', sampleType:'', product:'', colorSpec:'', qty:'', unit:'', sampleDate:'', requiredDate:'', actualDate:'', status:'', cost:'', remark:''});
+  DB.set('sampling', data); renderSampling(); showToast('Row added');
+};
+window.deleteSampling = function(id){
+  DB.set('sampling', DB.get('sampling',[]).filter(r=>r.id!==id)); renderSampling(); showToast('Row deleted');
+};
+window.importSamplingExcel = async function(input){
+  const file = input.files[0]; if(!file) return;
+  const imported = await importExcel(file, samplingSchema);
+  if(imported.length===0){showToast('No data imported','error');return;}
+  DB.set('sampling', [...DB.get('sampling',[]), ...imported]); renderSampling(); showToast(`Imported ${imported.length} rows`); input.value='';
+};
+window.exportSamplingExcel = function(){
+  exportExcel(DB.get('sampling',[]), samplingSchema, `Sampling_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Exported');
+};
+window.backupSampling = function(){
+  downloadJSON(DB.get('sampling',[]), `Sampling_backup_${new Date().toISOString().slice(0,10)}.json`);
+  showToast('Backup saved');
+};
+window.restoreSampling = function(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{try{const data=JSON.parse(e.target.result);DB.set('sampling',Array.isArray(data)?data:(data.sampling||[]));renderSampling();showToast('Restored');}catch{showToast('Invalid JSON','error');}};
+  reader.readAsText(file); input.value='';
+};
+
+function renderShipment(){
+  let tab = window.shipmentTab || 'df';
+  const data = tab==='df' ? DB.get('shipment',[]) : DB.get('shipment',[]);
+  const filters = window.shipmentFilters || {};
+  const search = window.shipmentSearch || '';
+  document.getElementById('shipment').innerHTML = `
+    <h1 class="page-title">发货数据管理</h1>
+    <div class="toolbar">
+      <button class="btn ${tab==='df'?'btn-primary':'btn-secondary'} btn-sm" onclick="window.shipmentTab='df';renderShipment()">DF</button>
+      <button class="btn ${tab==='3x3'?'btn-primary':'btn-secondary'} btn-sm" onclick="window.shipmentTab='3x3';renderShipment()">3X3</button>
+      <input class="search-input" placeholder="Search..." value="${search}" oninput="window.shipmentSearch=this.value;renderShipment()">
+      <button class="btn btn-success btn-sm" onclick="addShipmentRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('shipment-import').click()">📥 Import Excel</button>
+      <input type="file" id="shipment-import" style="display:none" accept=".xlsx,.xls" onchange="importShipmentExcel(this)">
+      <button class="btn btn-secondary btn-sm" onclick="exportShipmentExcel()">📤 Export Excel</button>
+      <button class="btn btn-secondary btn-sm" onclick="backupShipment()">💾 Backup JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('shipment-restore').click()">📂 Restore JSON</button>
+      <input type="file" id="shipment-restore" style="display:none" accept=".json" onchange="restoreShipment(this)">
+    </div>
+    <div class="table-container" id="shipment-table"></div>
+  `;
+  renderTable('shipment-table', data, shipmentSchema, {
+    editable:true, onChange:d=>DB.set('shipment',d), onDelete:'deleteShipment',
+    filters, search, onFilter:(k,v)=>{window.shipmentFilters={...filters,[k]:v};renderShipment();}
+  });
+}
+window.addShipmentRow = function(){
+  const data = DB.get('shipment',[]);
+  data.push({id:uid(), invNo:'', invDate:'', exportTitle:'', poNo:'', customer:'', division:'', shippedQtyY:'', shippedQtyKg:'', invAmount:'', focQtyY:'', focQtyKg:'', focAmount:'', chargedQtyKg:'', paymentDate:'', amountReceived:'', unpaidAmount:'', fullyReceived:'', paymentDocs:'', remark:''});
+  DB.set('shipment', data); renderShipment(); showToast('Row added');
+};
+window.deleteShipment = function(id){
+  DB.set('shipment', DB.get('shipment',[]).filter(r=>r.id!==id)); renderShipment(); showToast('Row deleted');
+};
+window.importShipmentExcel = async function(input){
+  const file = input.files[0]; if(!file) return;
+  const imported = await importExcel(file, shipmentSchema);
+  if(imported.length===0){showToast('No data imported','error');return;}
+  DB.set('shipment', [...DB.get('shipment',[]), ...imported]); renderShipment(); showToast(`Imported ${imported.length} rows`); input.value='';
+};
+window.exportShipmentExcel = function(){
+  exportExcel(DB.get('shipment',[]), shipmentSchema, `Shipment_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Exported');
+};
+window.backupShipment = function(){
+  downloadJSON(DB.get('shipment',[]), `Shipment_backup_${new Date().toISOString().slice(0,10)}.json`);
+  showToast('Backup saved');
+};
+window.restoreShipment = function(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{try{const data=JSON.parse(e.target.result);DB.set('shipment',Array.isArray(data)?data:(data.shipment||[]));renderShipment();showToast('Restored');}catch{showToast('Invalid JSON','error');}};
+  reader.readAsText(file); input.value='';
+};
+
+function renderPayment(){
+  const data = DB.get('payment',[]);
+  const filters = window.paymentFilters || {};
+  const search = window.paymentSearch || '';
+  const totalReceivable = data.reduce((a,b)=>a+(parseFloat(b.receivable)||0),0);
+  const totalReceived = data.reduce((a,b)=>a+(parseFloat(b.received)||0),0);
+  const totalUnpaid = data.reduce((a,b)=>a+(parseFloat(b.unpaid)||0),0);
+  document.getElementById('payment').innerHTML = `
+    <h1 class="page-title">收款管理</h1>
+    <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:12px">
+      <div class="kpi-card"><div class="kpi-value">$${totalReceivable.toLocaleString()}</div><div class="kpi-label">应收总额</div></div>
+      <div class="kpi-card" style="background:linear-gradient(135deg,#10b981,#059669)"><div class="kpi-value">$${totalReceived.toLocaleString()}</div><div class="kpi-label">实收总额</div></div>
+      <div class="kpi-card" style="background:linear-gradient(135deg,#ef4444,#dc2626)"><div class="kpi-value">$${totalUnpaid.toLocaleString()}</div><div class="kpi-label">未收总额</div></div>
+    </div>
+    <div class="toolbar">
+      <input class="search-input" placeholder="Search..." value="${search}" oninput="window.paymentSearch=this.value;renderPayment()">
+      <button class="btn btn-success btn-sm" onclick="addPaymentRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('payment-import').click()">📥 Import Excel</button>
+      <input type="file" id="payment-import" style="display:none" accept=".xlsx,.xls" onchange="importPaymentExcel(this)">
+      <button class="btn btn-secondary btn-sm" onclick="exportPaymentExcel()">📤 Export Excel</button>
+      <button class="btn btn-secondary btn-sm" onclick="backupPayment()">💾 Backup JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('payment-restore').click()">📂 Restore JSON</button>
+      <input type="file" id="payment-restore" style="display:none" accept=".json" onchange="restorePayment(this)">
+    </div>
+    <div class="table-container" id="payment-table"></div>
+  `;
+  renderTable('payment-table', data, paymentSchema, {
+    editable:true, onChange:d=>DB.set('payment',d), onDelete:'deletePayment',
+    filters, search, onFilter:(k,v)=>{window.paymentFilters={...filters,[k]:v};renderPayment();}
+  });
+}
+window.addPaymentRow = function(){
+  const data = DB.get('payment',[]);
+  data.push({id:uid(), invNo:'', customer:'', contractNo:'', receivable:'', received:'', unpaid:'', paymentDate:'', paymentMethod:'', bankSlip:'', verifyStatus:'', verifyDate:'', remark:''});
+  DB.set('payment', data); renderPayment(); showToast('Row added');
+};
+window.deletePayment = function(id){
+  DB.set('payment', DB.get('payment',[]).filter(r=>r.id!==id)); renderPayment(); showToast('Row deleted');
+};
+window.importPaymentExcel = async function(input){
+  const file = input.files[0]; if(!file) return;
+  const imported = await importExcel(file, paymentSchema);
+  if(imported.length===0){showToast('No data imported','error');return;}
+  DB.set('payment', [...DB.get('payment',[]), ...imported]); renderPayment(); showToast(`Imported ${imported.length} rows`); input.value='';
+};
+window.exportPaymentExcel = function(){
+  exportExcel(DB.get('payment',[]), paymentSchema, `Payment_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Exported');
+};
+window.backupPayment = function(){
+  downloadJSON(DB.get('payment',[]), `Payment_backup_${new Date().toISOString().slice(0,10)}.json`);
+  showToast('Backup saved');
+};
+window.restorePayment = function(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{try{const data=JSON.parse(e.target.result);DB.set('payment',Array.isArray(data)?data:(data.payment||[]));renderPayment();showToast('Restored');}catch{showToast('Invalid JSON','error');}};
+  reader.readAsText(file); input.value='';
+};
+
+function renderShippingPlan(){
+  const data = DB.get('shippingPlan',[]);
+  const filters = window.shippingPlanFilters || {};
+  const search = window.shippingPlanSearch || '';
+  document.getElementById('shippingPlan').innerHTML = `
+    <h1 class="page-title">订舱计划</h1>
+    <div class="toolbar">
+      <input class="search-input" placeholder="Search..." value="${search}" oninput="window.shippingPlanSearch=this.value;renderShippingPlan()">
+      <button class="btn btn-success btn-sm" onclick="addShippingPlanRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('shippingPlan-import').click()">📥 Import Excel</button>
+      <input type="file" id="shippingPlan-import" style="display:none" accept=".xlsx,.xls" onchange="importShippingPlanExcel(this)">
+      <button class="btn btn-secondary btn-sm" onclick="exportShippingPlanExcel()">📤 Export Excel</button>
+      <button class="btn btn-secondary btn-sm" onclick="backupShippingPlan()">💾 Backup JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('shippingPlan-restore').click()">📂 Restore JSON</button>
+      <input type="file" id="shippingPlan-restore" style="display:none" accept=".json" onchange="restoreShippingPlan(this)">
+    </div>
+    <div class="table-container" id="shippingPlan-table"></div>
+  `;
+  renderTable('shippingPlan-table', data, shippingPlanSchema, {
+    editable:true, onChange:d=>DB.set('shippingPlan',d), onDelete:'deleteShippingPlan',
+    filters, search, onFilter:(k,v)=>{window.shippingPlanFilters={...filters,[k]:v};renderShippingPlan();}
+  });
+}
+window.addShippingPlanRow = function(){
+  const data = DB.get('shippingPlan',[]);
+  data.push({id:uid(), bookingDate:'', customer:'', status:'', loadingDate:'', expectedEtd:'', siCutOff:'', confirmedEtd:'', exportTitle:'', departurePort:'', destination:'', vsslTruck:'', forwarder:'', containerType:'', estPk:'', estKg:'', estCbm:'', spDate:'', sp1:'', spDocs:'', spDate2:'', sp2:'', spDate3:'', sp3:''});
+  DB.set('shippingPlan', data); renderShippingPlan(); showToast('Row added');
+};
+window.deleteShippingPlan = function(id){
+  DB.set('shippingPlan', DB.get('shippingPlan',[]).filter(r=>r.id!==id)); renderShippingPlan(); showToast('Row deleted');
+};
+window.importShippingPlanExcel = async function(input){
+  const file = input.files[0]; if(!file) return;
+  const imported = await importExcel(file, shippingPlanSchema);
+  if(imported.length===0){showToast('No data imported','error');return;}
+  DB.set('shippingPlan', [...DB.get('shippingPlan',[]), ...imported]); renderShippingPlan(); showToast(`Imported ${imported.length} rows`); input.value='';
+};
+window.exportShippingPlanExcel = function(){
+  exportExcel(DB.get('shippingPlan',[]), shippingPlanSchema, `ShippingPlan_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Exported');
+};
+window.backupShippingPlan = function(){
+  downloadJSON(DB.get('shippingPlan',[]), `ShippingPlan_backup_${new Date().toISOString().slice(0,10)}.json`);
+  showToast('Backup saved');
+};
+window.restoreShippingPlan = function(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{try{const data=JSON.parse(e.target.result);DB.set('shippingPlan',Array.isArray(data)?data:(data.shippingPlan||[]));renderShippingPlan();showToast('Restored');}catch{showToast('Invalid JSON','error');}};
+  reader.readAsText(file); input.value='';
+};
+
+function renderLogistics(){
+  const data = DB.get('logistics',[]);
+  const filters = window.logisticsFilters || {};
+  const search = window.logisticsSearch || '';
+  const inTransit = data.filter(l=>l.currentStatus==='运输中').length;
+  const booked = data.filter(l=>l.currentStatus==='已订舱').length;
+  const arrived = data.filter(l=>l.currentStatus==='已到达').length;
+  document.getElementById('logistics').innerHTML = `
+    <h1 class="page-title">物流追踪</h1>
+    <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:12px">
+      <div class="kpi-card"><div class="kpi-value">${data.length}</div><div class="kpi-label">总运单</div></div>
+      <div class="kpi-card" style="background:linear-gradient(135deg,#06b6d4,#0891b2)"><div class="kpi-value">${inTransit}</div><div class="kpi-label">运输中</div></div>
+      <div class="kpi-card" style="background:linear-gradient(135deg,#f59e0b,#d97706)"><div class="kpi-value">${booked}</div><div class="kpi-label">已订舱</div></div>
+      <div class="kpi-card" style="background:linear-gradient(135deg,#10b981,#059669)"><div class="kpi-value">${arrived}</div><div class="kpi-label">已到达</div></div>
+    </div>
+    <div class="toolbar">
+      <input class="search-input" placeholder="Search..." value="${search}" oninput="window.logisticsSearch=this.value;renderLogistics()">
+      <button class="btn btn-success btn-sm" onclick="addLogisticsRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('logistics-import').click()">📥 Import Excel</button>
+      <input type="file" id="logistics-import" style="display:none" accept=".xlsx,.xls" onchange="importLogisticsExcel(this)">
+      <button class="btn btn-secondary btn-sm" onclick="exportLogisticsExcel()">📤 Export Excel</button>
+      <button class="btn btn-secondary btn-sm" onclick="backupLogistics()">💾 Backup JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('logistics-restore').click()">📂 Restore JSON</button>
+      <input type="file" id="logistics-restore" style="display:none" accept=".json" onchange="restoreLogistics(this)">
+    </div>
+    <div class="table-container" id="logistics-table"></div>
+  `;
+  renderTable('logistics-table', data, logisticsSchema, {
+    editable:true, onChange:d=>DB.set('logistics',d), onDelete:'deleteLogistics',
+    filters, search, onFilter:(k,v)=>{window.logisticsFilters={...filters,[k]:v};renderLogistics();}
+  });
+}
+window.addLogisticsRow = function(){
+  const data = DB.get('logistics',[]);
+  data.push({id:uid(), trackingNo:'', invNo:'', carrier:'', transportMode:'', pol:'', pod:'', currentStatus:'', departureDate:'', eta:'', ata:'', pieces:'', grossWeight:'', volume:'', remark:''});
+  DB.set('logistics', data); renderLogistics(); showToast('Row added');
+};
+window.deleteLogistics = function(id){
+  DB.set('logistics', DB.get('logistics',[]).filter(r=>r.id!==id)); renderLogistics(); showToast('Row deleted');
+};
+window.importLogisticsExcel = async function(input){
+  const file = input.files[0]; if(!file) return;
+  const imported = await importExcel(file, logisticsSchema);
+  if(imported.length===0){showToast('No data imported','error');return;}
+  DB.set('logistics', [...DB.get('logistics',[]), ...imported]); renderLogistics(); showToast(`Imported ${imported.length} rows`); input.value='';
+};
+window.exportLogisticsExcel = function(){
+  exportExcel(DB.get('logistics',[]), logisticsSchema, `Logistics_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Exported');
+};
+window.backupLogistics = function(){
+  downloadJSON(DB.get('logistics',[]), `Logistics_backup_${new Date().toISOString().slice(0,10)}.json`);
+  showToast('Backup saved');
+};
+window.restoreLogistics = function(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{try{const data=JSON.parse(e.target.result);DB.set('logistics',Array.isArray(data)?data:(data.logistics||[]));renderLogistics();showToast('Restored');}catch{showToast('Invalid JSON','error');}};
+  reader.readAsText(file); input.value='';
+};
+
+function renderYarnTracking(){
+  const data = DB.get('yarnTracking',[]);
+  const filters = window.yarnTrackingFilters || {};
+  const search = window.yarnTrackingSearch || '';
+  document.getElementById('yarnTracking').innerHTML = `
+    <h1 class="page-title">纱坯追踪</h1>
+    <div class="subtitle">Yarn In-house → Knitting L/T (days) → Yarn/Knitting L/T (weeks) 自动换算</div>
+    <div class="toolbar">
+      <input class="search-input" placeholder="Search..." value="${search}" oninput="window.yarnTrackingSearch=this.value;renderYarnTracking()">
+      <button class="btn btn-success btn-sm" onclick="addYarnTrackingRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('yarnTracking-import').click()">📥 Import Excel</button>
+      <input type="file" id="yarnTracking-import" style="display:none" accept=".xlsx,.xls" onchange="importYarnTrackingExcel(this)">
+      <button class="btn btn-secondary btn-sm" onclick="exportYarnTrackingExcel()">📤 Export Excel</button>
+      <button class="btn btn-secondary btn-sm" onclick="backupYarnTracking()">💾 Backup JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('yarnTracking-restore').click()">📂 Restore JSON</button>
+      <input type="file" id="yarnTracking-restore" style="display:none" accept=".json" onchange="restoreYarnTracking(this)">
+    </div>
+    <div class="table-container" id="yarnTracking-table"></div>
+  `;
+  renderTable('yarnTracking-table', data, yarnTrackingSchema, {
+    editable:true, onChange:d=>{
+      // Auto-calculate weeks when days change
+      d.forEach(row=>{
+        const yarn = parseFloat(row.yarnInHouse)||0;
+        const knit = parseFloat(row.knittingLT)||0;
+        if(yarn||knit) row.yarnKnittingWeeks = ((yarn+knit)/7).toFixed(2);
+      });
+      DB.set('yarnTracking',d);
+    }, onDelete:'deleteYarnTracking',
+    filters, search, onFilter:(k,v)=>{window.yarnTrackingFilters={...filters,[k]:v};renderYarnTracking();}
+  });
+}
+window.addYarnTrackingRow = function(){
+  const data = DB.get('yarnTracking',[]);
+  data.push({id:uid(), poNumber:'', styleNo:'', colorCode:'', yarnInHouse:'', knittingLT:'', yarnKnittingWeeks:'', dyeingDays:'', finishingDays:'', cuttingDays:'', sewingDays:'', totalLT:'', remark:''});
+  DB.set('yarnTracking', data); renderYarnTracking(); showToast('Row added');
+};
+window.deleteYarnTracking = function(id){
+  DB.set('yarnTracking', DB.get('yarnTracking',[]).filter(r=>r.id!==id)); renderYarnTracking(); showToast('Row deleted');
+};
+window.importYarnTrackingExcel = async function(input){
+  const file = input.files[0]; if(!file) return;
+  const imported = await importExcel(file, yarnTrackingSchema);
+  if(imported.length===0){showToast('No data imported','error');return;}
+  // Auto-calculate weeks
+  imported.forEach(row=>{
+    const yarn = parseFloat(row.yarnInHouse)||0;
+    const knit = parseFloat(row.knittingLT)||0;
+    if(yarn||knit) row.yarnKnittingWeeks = ((yarn+knit)/7).toFixed(2);
+  });
+  DB.set('yarnTracking', [...DB.get('yarnTracking',[]), ...imported]); renderYarnTracking(); showToast(`Imported ${imported.length} rows`); input.value='';
+};
+window.exportYarnTrackingExcel = function(){
+  exportExcel(DB.get('yarnTracking',[]), yarnTrackingSchema, `YarnTracking_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Exported');
+};
+window.backupYarnTracking = function(){
+  downloadJSON(DB.get('yarnTracking',[]), `YarnTracking_backup_${new Date().toISOString().slice(0,10)}.json`);
+  showToast('Backup saved');
+};
+window.restoreYarnTracking = function(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{try{const data=JSON.parse(e.target.result);DB.set('yarnTracking',Array.isArray(data)?data:(data.yarnTracking||[]));renderYarnTracking();showToast('Restored');}catch{showToast('Invalid JSON','error');}};
+  reader.readAsText(file); input.value='';
+};
+
+function renderCustoms(){
+  const data = DB.get('customs',[]);
+  const filters = window.customsFilters || {};
+  const search = window.customsSearch || '';
+  document.getElementById('customs').innerHTML = `
+    <h1 class="page-title">报关管理</h1>
+    <div class="toolbar">
+      <input class="search-input" placeholder="Search..." value="${search}" oninput="window.customsSearch=this.value;renderCustoms()">
+      <button class="btn btn-success btn-sm" onclick="addCustomsRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('customs-import').click()">📥 Import Excel</button>
+      <input type="file" id="customs-import" style="display:none" accept=".xlsx,.xls" onchange="importCustomsExcel(this)">
+      <button class="btn btn-secondary btn-sm" onclick="exportCustomsExcel()">📤 Export Excel</button>
+      <button class="btn btn-secondary btn-sm" onclick="backupCustoms()">💾 Backup JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('customs-restore').click()">📂 Restore JSON</button>
+      <input type="file" id="customs-restore" style="display:none" accept=".json" onchange="restoreCustoms(this)">
+    </div>
+    <div class="table-container" id="customs-table"></div>
+  `;
+  renderTable('customs-table', data, customsSchema, {
+    editable:true, onChange:d=>DB.set('customs',d), onDelete:'deleteCustoms',
+    filters, search, onFilter:(k,v)=>{window.customsFilters={...filters,[k]:v};renderCustoms();}
+  });
+}
+window.addCustomsRow = function(){
+  const data = DB.get('customs',[]);
+  data.push({id:uid(), customsNo:'', invNo:'', contractNo:'', exportDate:'', customsPort:'', destination:'', tradeMode:'', term:'', pieces:'', grossWeight:'', netWeight:'', customsAmount:'', customsStatus:'', remark:''});
+  DB.set('customs', data); renderCustoms(); showToast('Row added');
+};
+window.deleteCustoms = function(id){
+  DB.set('customs', DB.get('customs',[]).filter(r=>r.id!==id)); renderCustoms(); showToast('Row deleted');
+};
+window.importCustomsExcel = async function(input){
+  const file = input.files[0]; if(!file) return;
+  const imported = await importExcel(file, customsSchema);
+  if(imported.length===0){showToast('No data imported','error');return;}
+  DB.set('customs', [...DB.get('customs',[]), ...imported]); renderCustoms(); showToast(`Imported ${imported.length} rows`); input.value='';
+};
+window.exportCustomsExcel = function(){
+  exportExcel(DB.get('customs',[]), customsSchema, `Customs_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Exported');
+};
+window.backupCustoms = function(){
+  downloadJSON(DB.get('customs',[]), `Customs_backup_${new Date().toISOString().slice(0,10)}.json`);
+  showToast('Backup saved');
+};
+window.restoreCustoms = function(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{try{const data=JSON.parse(e.target.result);DB.set('customs',Array.isArray(data)?data:(data.customs||[]));renderCustoms();showToast('Restored');}catch{showToast('Invalid JSON','error');}};
+  reader.readAsText(file); input.value='';
+};
+
+/* ========== ROUTER ========== */
+function route(){
+  const page = location.hash.slice(1)||'dashboard';
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const target = document.getElementById(page);
+  if(target) target.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.id===page));
+  if(page==='dashboard') renderDashboard();
+  if(page==='inquiry') renderInquiry();
+  if(page==='quotation') renderQuotation();
+  if(page==='customerDev') renderCustomerDev();
+  if(page==='contracts') renderContracts();
+  if(page==='sampling') renderSampling();
+  if(page==='shipment') renderShipment();
+  if(page==='payment') renderPayment();
+  if(page==='shippingPlan') renderShippingPlan();
+  if(page==='logistics') renderLogistics();
+  if(page==='customs') renderCustoms();
+  if(page==='yarnTracking') renderYarnTracking();
+}
+
+/* ========== INIT ========== */
+function initApp(){
+  document.getElementById('app').innerHTML = `
+    <div class="sidebar" id="sidebar"></div>
+    <div class="main">
+      <div class="page active" id="dashboard"></div>
+      <div class="page" id="inquiry"></div>
+      <div class="page" id="quotation"></div>
+      <div class="page" id="customerDev"></div>
+      <div class="page" id="contracts"></div>
+      <div class="page" id="sampling"></div>
+      <div class="page" id="shipment"></div>
+      <div class="page" id="payment"></div>
+      <div class="page" id="shippingPlan"></div>
+      <div class="page" id="logistics"></div>
+      <div class="page" id="customs"></div>
+      <div class="page" id="yarnTracking"></div>
+    </div>
+  `;
+  initData();
+  renderNav();
+  route();
+  window.addEventListener('hashchange', route);
+  document.addEventListener('click', ()=>document.querySelectorAll('.filter-dropdown').forEach(d=>d.classList.remove('show')));
+}
+initApp();
+</script>
+</body>
+</html>
